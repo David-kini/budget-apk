@@ -33,6 +33,10 @@ jobs:
           set -o pipefail
           ./gradlew --no-daemon --stacktrace testDebugUnitTest 2>&1 | tee tests.log
 
+      - name: Bilan des tests
+        if: always()
+        run: python3 .github/scripts/test_summary.py
+
       - name: Compilation de l'APK
         id: apk
         run: |
