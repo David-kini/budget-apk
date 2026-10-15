@@ -1,0 +1,77 @@
+name: Android CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: android-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Tests unitaires et base de données (JVM + Robolectric)
+        id: tests
+        run: |
+          set -o pipefail
+          ./gradlew --no-daemon --stacktrace testDebugUnitTest 2>&1 | tee tests.log
+
+      - name: Compilation de l'APK
+        id: apk
+        run: |
+          set -o pipefail
+          ./gradlew --no-daemon assembleDebug 2>&1 | tee apk.log
+          mkdir -p dist
+          cp app/build/outputs/apk/debug/app-debug.apk dist/SmartBudgetFC.apk
+
+      # Rend les erreurs lisibles sans connexion (annotations publiques du check-run)
+      - name: Résumé des erreurs
+        if: failure()
+        run: python3 .github/scripts/report_errors.py
+
+      - name: Rapports de tests
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rapports-tests
+          path: |
+            app/build/reports/tests/
+            app/build/test-results/
+            app/schemas/
+          if-no-files-found: ignore
+
+      - name: APK (artefact)
+        uses: actions/upload-artifact@v4
+        with:
+          name: SmartBudgetFC-apk
+          path: dist/SmartBudgetFC.apk
+
+      # Publie l'APK sur une page de téléchargement stable (Releases > dev-latest)
+      - name: Publier l'APK (dev-latest)
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete dev-latest --cleanup-tag -y || true
+          gh release create dev-latest dist/SmartBudgetFC.apk \
+            --prerelease \
+            --target "$GITHUB_SHA" \
+            --title "SmartBudget FC - version de développement" \
+            --notes "APK compilé automatiquement depuis le commit $GITHUB_SHA. Tous les tests unitaires ont réussi avant la compilation."
