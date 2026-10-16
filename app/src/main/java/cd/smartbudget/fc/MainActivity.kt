@@ -4,25 +4,15 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material3.Card
-import androidx.compose.material3.CenterAlignedTopAppBar
-import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -32,88 +22,75 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import cd.smartbudget.fc.core.Money
-import cd.smartbudget.fc.core.Percent
 import cd.smartbudget.fc.data.db.DatabaseSeeder
+import cd.smartbudget.fc.ui.navigation.AppNavHost
 import cd.smartbudget.fc.ui.theme.SmartBudgetTheme
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
-/**
- * Étape 2 : écran PROVISOIRE de vérification de la base de données (données réelles SQLite).
- * Il sera remplacé à l'étape 4 par la navigation complète (tableau de bord, entrées, dépenses…).
- */
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-        val db = (application as SmartBudgetApp).container.database
+        val container = (application as SmartBudgetApp).container
         setContent {
             SmartBudgetTheme {
-                DatabaseStatusScreen(db)
+                Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+                    var state by remember { mutableStateOf<StartupState>(StartupState.Loading) }
+                    LaunchedEffect(Unit) {
+                        state = try {
+                            withContext(Dispatchers.IO) {
+                                // Ouvre la base chiffrée et crée les catégories par défaut au premier lancement.
+                                DatabaseSeeder.seedIfEmpty(container.database)
+                            }
+                            StartupState.Ready
+                        } catch (e: Exception) {
+                            StartupState.Failed(e.javaClass.simpleName)
+                        }
+                    }
+                    when (val s = state) {
+                        StartupState.Loading -> SplashScreen(null)
+                        is StartupState.Failed -> SplashScreen(s.reason)
+                        StartupState.Ready -> AppNavHost()
+                    }
+                }
             }
         }
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun DatabaseStatusScreen(db: cd.smartbudget.fc.data.db.AppDatabase) {
-    var status by remember { mutableStateOf("Initialisation de la base chiffrée…") }
-    LaunchedEffect(Unit) {
-        status = try {
-            val created = withContext(Dispatchers.IO) { DatabaseSeeder.seedIfEmpty(db) }
-            if (created) "Base créée avec les catégories par défaut" else "Base chiffrée ouverte"
-        } catch (e: Exception) {
-            "Erreur d'ouverture de la base : ${e.javaClass.simpleName}"
-        }
-    }
-    val shares by db.budgetConfigurationDao().observeCurrentShares().collectAsStateWithLifecycle(emptyList())
-    val balances by db.balanceDao().observeBalances().collectAsStateWithLifecycle(emptyList())
-    val balanceById = balances.associateBy { it.categoryId }
+private sealed interface StartupState {
+    data object Loading : StartupState
+    data object Ready : StartupState
+    data class Failed(val reason: String) : StartupState
+}
 
-    Scaffold(
-        topBar = { CenterAlignedTopAppBar(title = { Text("SmartBudget FC") }) },
-    ) { padding ->
-        LazyColumn(
-            modifier = Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            item {
-                Text(status, style = MaterialTheme.typography.bodyMedium)
-                Spacer(Modifier.padding(4.dp))
-                Text(
-                    "Répartition active : ${Percent.format(shares.sumOf { it.basisPoints })}",
-                    style = MaterialTheme.typography.titleMedium,
-                )
-            }
-            items(shares, key = { it.categoryId }) { share ->
-                Card(Modifier.fillMaxWidth()) {
-                    Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Box(Modifier.size(14.dp).background(Color(share.colorArgb.toInt()), CircleShape))
-                        Spacer(Modifier.width(12.dp))
-                        Column(Modifier.weight(1f)) {
-                            Text(share.name, fontWeight = FontWeight.SemiBold)
-                            Text(
-                                "Solde : ${Money.format(balanceById[share.categoryId]?.balance() ?: 0L)}",
-                                style = MaterialTheme.typography.bodySmall,
-                            )
-                        }
-                        Text(Percent.format(share.basisPoints), style = MaterialTheme.typography.titleMedium)
-                    }
-                }
-            }
-            item {
-                Text(
-                    "Version de développement — étape 2 (base de données). Les écrans complets arrivent à l'étape 4.",
-                    style = MaterialTheme.typography.bodySmall,
-                    modifier = Modifier.padding(vertical = 16.dp),
-                )
-            }
+/** Écran de démarrage (et d'erreur d'ouverture de la base). */
+@Composable
+private fun SplashScreen(error: String?) {
+    Column(
+        Modifier.fillMaxSize().padding(32.dp),
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Text("SmartBudget FC", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.primary)
+        Text("Gestion financière personnelle", style = MaterialTheme.typography.bodyMedium)
+        Spacer(Modifier.height(32.dp))
+        if (error == null) {
+            CircularProgressIndicator()
+            Spacer(Modifier.height(12.dp))
+            Text("Ouverture de vos données chiffrées…", style = MaterialTheme.typography.bodySmall)
+        } else {
+            Text(
+                "Impossible d'ouvrir la base de données ($error). Vos données ne sont pas supprimées. " +
+                    "Redémarrez l'application ; si le problème persiste, restaurez une sauvegarde.",
+                color = MaterialTheme.colorScheme.error,
+                textAlign = TextAlign.Center,
+            )
         }
     }
 }

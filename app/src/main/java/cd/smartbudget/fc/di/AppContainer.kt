@@ -3,6 +3,7 @@ package cd.smartbudget.fc.di
 import android.content.Context
 import cd.smartbudget.fc.data.db.AppDatabase
 import cd.smartbudget.fc.data.repo.CategoryRepository
+import cd.smartbudget.fc.data.repo.DashboardRepository
 import cd.smartbudget.fc.data.repo.ExpenseRepository
 import cd.smartbudget.fc.data.repo.HistoryRepository
 import cd.smartbudget.fc.data.repo.IncomeRepository
@@ -13,7 +14,7 @@ import cd.smartbudget.fc.security.DatabaseKeyManager
 
 /** Conteneur de dépendances de l'application (injection manuelle). */
 class AppContainer(context: Context) {
-    private val appContext = context.applicationContext
+    val appContext: Context = context.applicationContext
 
     val databaseKeyManager: DatabaseKeyManager by lazy { DatabaseKeyManager(appContext) }
 
@@ -28,4 +29,5 @@ class AppContainer(context: Context) {
     val transferRepository by lazy { TransferRepository(database) }
     val historyRepository by lazy { HistoryRepository(database) }
     val consistencyChecker by lazy { ConsistencyChecker(database) }
+    val dashboardRepository by lazy { DashboardRepository(database) }
 }

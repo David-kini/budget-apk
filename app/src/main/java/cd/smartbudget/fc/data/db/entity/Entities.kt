@@ -333,6 +333,7 @@ data class OperationRow(
     val categoryId: Long?,
     val categoryName: String?,
     /** Catégorie de destination d'un transfert. */
+    val targetCategoryId: Long?,
     val targetCategoryName: String?,
     val label: String,
     val description: String?,
@@ -340,4 +341,20 @@ data class OperationRow(
     val reference: String?,
     val status: String,
     val createdAt: Long,
+)
+
+/** Part reçue par une catégorie lors d'une entrée. */
+data class CategoryAllocationRow(
+    val incomeId: Long,
+    val receivedDate: Long,
+    val source: String,
+    val basisPoints: Int,
+    val amount: Long,
+    val status: String,
+)
+
+/** Total par catégorie. */
+data class CategoryTotalRow(
+    val categoryId: Long,
+    val total: Long,
 )

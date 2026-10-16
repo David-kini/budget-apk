@@ -13,7 +13,9 @@ import cd.smartbudget.fc.data.db.entity.BlacklistEntity
 import cd.smartbudget.fc.data.db.entity.BlacklistHistoryEntity
 import cd.smartbudget.fc.data.db.entity.BudgetConfigurationEntity
 import cd.smartbudget.fc.data.db.entity.BudgetConfigurationItemEntity
+import cd.smartbudget.fc.data.db.entity.CategoryAllocationRow
 import cd.smartbudget.fc.data.db.entity.CategoryBalanceRow
+import cd.smartbudget.fc.data.db.entity.CategoryTotalRow
 import cd.smartbudget.fc.data.db.entity.CategoryEntity
 import cd.smartbudget.fc.data.db.entity.CurrentShareRow
 import cd.smartbudget.fc.data.db.entity.ExpenseEntity
@@ -179,6 +181,17 @@ interface AllocationDao {
 
     @Query("SELECT COALESCE(SUM(amount), 0) FROM allocations WHERE incomeId = :incomeId")
     suspend fun sumForIncome(incomeId: Long): Long
+
+    @Query(
+        """
+        SELECT a.incomeId AS incomeId, i.receivedDate AS receivedDate, i.source AS source,
+               a.basisPoints AS basisPoints, a.amount AS amount, i.status AS status
+        FROM allocations a JOIN incomes i ON i.id = a.incomeId
+        WHERE a.categoryId = :categoryId
+        ORDER BY i.receivedDate DESC, i.id DESC
+        """
+    )
+    fun observeForCategory(categoryId: Long): Flow<List<CategoryAllocationRow>>
 }
 
 @Dao
@@ -211,6 +224,15 @@ interface ExpenseDao {
 
     @Query("SELECT COALESCE(SUM(amount), 0) FROM expenses WHERE status = 'ACTIVE'")
     suspend fun sumActive(): Long
+
+    @Query(
+        """
+        SELECT categoryId AS categoryId, SUM(amount) AS total FROM expenses
+        WHERE status = 'ACTIVE' AND expenseDate BETWEEN :fromDay AND :toDay
+        GROUP BY categoryId
+        """
+    )
+    suspend fun sumByCategoryBetween(fromDay: Long, toDay: Long): List<CategoryTotalRow>
 
     @Query(
         """
@@ -336,19 +358,19 @@ interface AuditDao {
 internal const val OPERATIONS_SQL = """
     SELECT * FROM (
         SELECT 'INCOME' AS type, i.id AS id, i.receivedDate AS date, i.amount AS amount,
-               NULL AS categoryId, NULL AS categoryName, NULL AS targetCategoryName,
+               NULL AS categoryId, NULL AS categoryName, NULL AS targetCategoryId, NULL AS targetCategoryName,
                i.source AS label, i.description AS description, i.reference AS reference,
                i.status AS status, i.createdAt AS createdAt
         FROM incomes i
         UNION ALL
         SELECT 'EXPENSE', e.id, e.expenseDate, e.amount,
-               e.categoryId, c.name, NULL,
+               e.categoryId, c.name, NULL, NULL,
                e.reason, e.description, e.beneficiary,
                e.status, e.createdAt
         FROM expenses e JOIN categories c ON c.id = e.categoryId
         UNION ALL
         SELECT 'TRANSFER', t.id, t.transferDate, t.amount,
-               t.fromCategoryId, cf.name, ct.name,
+               t.fromCategoryId, cf.name, t.toCategoryId, ct.name,
                t.reason, NULL, NULL,
                t.status, t.createdAt
         FROM transfers t
