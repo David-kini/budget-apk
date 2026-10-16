@@ -14,6 +14,7 @@ import cd.smartbudget.fc.data.db.dao.BudgetConfigurationDao
 import cd.smartbudget.fc.data.db.dao.CategoryDao
 import cd.smartbudget.fc.data.db.dao.ExpenseDao
 import cd.smartbudget.fc.data.db.dao.IncomeDao
+import cd.smartbudget.fc.data.db.dao.OperationDao
 import cd.smartbudget.fc.data.db.dao.SettingsDao
 import cd.smartbudget.fc.data.db.dao.TransferDao
 import cd.smartbudget.fc.data.db.entity.AllocationEntity
@@ -57,6 +58,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun blacklistDao(): BlacklistDao
     abstract fun settingsDao(): SettingsDao
     abstract fun auditDao(): AuditDao
+    abstract fun operationDao(): OperationDao
 
     companion object {
         const val SCHEMA_VERSION = 1

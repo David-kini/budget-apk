@@ -322,3 +322,22 @@ data class CurrentShareRow(
     val isActive: Boolean,
     val basisPoints: Int,
 )
+
+/** Ligne de l'historique unifié. type : INCOME, EXPENSE ou TRANSFER. */
+data class OperationRow(
+    val type: String,
+    val id: Long,
+    val date: Long,
+    val amount: Long,
+    /** Catégorie de la dépense, ou catégorie source d'un transfert. */
+    val categoryId: Long?,
+    val categoryName: String?,
+    /** Catégorie de destination d'un transfert. */
+    val targetCategoryName: String?,
+    val label: String,
+    val description: String?,
+    /** Référence d'une entrée, ou bénéficiaire d'une dépense. */
+    val reference: String?,
+    val status: String,
+    val createdAt: Long,
+)

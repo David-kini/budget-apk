@@ -18,6 +18,7 @@ import cd.smartbudget.fc.data.db.entity.CategoryEntity
 import cd.smartbudget.fc.data.db.entity.CurrentShareRow
 import cd.smartbudget.fc.data.db.entity.ExpenseEntity
 import cd.smartbudget.fc.data.db.entity.IncomeEntity
+import cd.smartbudget.fc.data.db.entity.OperationRow
 import cd.smartbudget.fc.data.db.entity.TransferEntity
 import kotlinx.coroutines.flow.Flow
 
@@ -52,6 +53,9 @@ interface CategoryDao {
 
     @Delete
     suspend fun delete(category: CategoryEntity)
+
+    @Query("UPDATE categories SET sortOrder = :sortOrder, updatedAt = :at WHERE id = :id")
+    suspend fun updateSortOrder(id: Long, sortOrder: Int, at: Long)
 
     /** Nombre d'enregistrements qui référencent cette catégorie (si > 0, suppression interdite). */
     @Query(
@@ -234,6 +238,9 @@ interface TransferDao {
     @Query("SELECT * FROM transfers ORDER BY id")
     suspend fun getAll(): List<TransferEntity>
 
+    @Query("SELECT * FROM transfers WHERE linkedExpenseId = :expenseId AND status = 'ACTIVE'")
+    suspend fun getActiveLinkedToExpense(expenseId: Long): List<TransferEntity>
+
     @Query(
         """
         UPDATE transfers SET status = 'CANCELLED', cancelledAt = :at, cancelReason = :reason
@@ -324,4 +331,40 @@ interface AuditDao {
 
     @Query("SELECT * FROM audit_log ORDER BY id")
     suspend fun getAll(): List<AuditLogEntity>
+}
+
+internal const val OPERATIONS_SQL = """
+    SELECT * FROM (
+        SELECT 'INCOME' AS type, i.id AS id, i.receivedDate AS date, i.amount AS amount,
+               NULL AS categoryId, NULL AS categoryName, NULL AS targetCategoryName,
+               i.source AS label, i.description AS description, i.reference AS reference,
+               i.status AS status, i.createdAt AS createdAt
+        FROM incomes i
+        UNION ALL
+        SELECT 'EXPENSE', e.id, e.expenseDate, e.amount,
+               e.categoryId, c.name, NULL,
+               e.reason, e.description, e.beneficiary,
+               e.status, e.createdAt
+        FROM expenses e JOIN categories c ON c.id = e.categoryId
+        UNION ALL
+        SELECT 'TRANSFER', t.id, t.transferDate, t.amount,
+               t.fromCategoryId, cf.name, ct.name,
+               t.reason, NULL, NULL,
+               t.status, t.createdAt
+        FROM transfers t
+        JOIN categories cf ON cf.id = t.fromCategoryId
+        JOIN categories ct ON ct.id = t.toCategoryId
+    )
+    WHERE date BETWEEN :fromDay AND :toDay
+    ORDER BY date DESC, createdAt DESC, id DESC
+"""
+
+/** Historique unifié des opérations (entrées, dépenses, transferts), annulées comprises. */
+@Dao
+interface OperationDao {
+    @Query(OPERATIONS_SQL)
+    fun observeBetween(fromDay: Long, toDay: Long): Flow<List<OperationRow>>
+
+    @Query(OPERATIONS_SQL)
+    suspend fun getBetween(fromDay: Long, toDay: Long): List<OperationRow>
 }
