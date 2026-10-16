@@ -97,6 +97,12 @@ class AllocationCalculatorTest {
         assertEquals(Money.MAX_AMOUNT, parts.sumOf { it.amount })
     }
 
+    @Test
+    fun single_category_takes_everything() {
+        val parts = AllocationCalculator.allocate(Money.fromFc(1_000_000), listOf(Share(4, 10_000, 3)))
+        assertEquals(listOf(AllocationCalculator.Part(4, 10_000, Money.fromFc(1_000_000))), parts)
+    }
+
     @Test(expected = IllegalArgumentException::class)
     fun shares_below_100_percent_are_rejected() {
         AllocationCalculator.allocate(10_000, listOf(Share(1, 5_000, 0), Share(2, 4_000, 1)))

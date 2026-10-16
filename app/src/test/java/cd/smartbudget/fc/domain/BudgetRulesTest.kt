@@ -15,6 +15,11 @@ class BudgetRulesTest {
     }
 
     @Test
+    fun a_single_category_at_100_percent_is_valid() {
+        assertEquals(Validation.Valid, BudgetRules.validate(listOf(ShareInput(1, 10_000), ShareInput(2, 0), ShareInput(3, 0)), active))
+    }
+
+    @Test
     fun below_100_percent_gives_explicit_message() {
         val v = BudgetRules.validate(listOf(ShareInput(1, 5_000), ShareInput(2, 2_000), ShareInput(3, 2_500)), active)
         assertTrue(v is Validation.Invalid)

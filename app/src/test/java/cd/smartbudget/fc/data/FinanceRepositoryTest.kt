@@ -180,6 +180,27 @@ class FinanceRepositoryTest {
     }
 
     @Test
+    fun one_category_can_receive_100_percent_of_every_income() = runBlocking {
+        val epargne = id.getValue("Épargne")
+        // 100 % sur une seule catégorie, 0 % pour toutes les autres : configuration valide.
+        categories.saveConfiguration(id.values.associateWith { if (it == epargne) 10_000 else 0 }).recordedId()
+
+        val incomeId = income(250_000).recordedId()
+        val allocations = incomes.allocationsOf(incomeId)
+        assertEquals(1, allocations.size) // aucune ligne à 0 FC pour les autres catégories
+        assertEquals(epargne, allocations.single().categoryId)
+        assertEquals(10_000, allocations.single().basisPoints)
+        assertEquals(250_000L, balanceFc("Épargne"))
+        assertEquals(0L, balanceFc("Créole"))
+        assertEquals(0L, balanceFc("Maison"))
+
+        // Les autres catégories restent actives et utilisables (dépense refusée faute de solde, sans erreur).
+        val result = expense(1_000, "Maison")
+        assertTrue(result is OperationResult.Rejected && result.reason == RejectReason.INSUFFICIENT_BALANCE)
+        assertConsistent()
+    }
+
+    @Test
     fun new_category_receives_nothing_until_given_a_percentage() = runBlocking {
         val newId = categories.addCategory("Transport", 0xFF546E7AL).recordedId()
         income(100_000).recordedId()
