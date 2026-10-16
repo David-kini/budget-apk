@@ -87,7 +87,7 @@ fun AppNavHost(navController: NavHostController = rememberNavController()) {
                                 }
                             },
                             icon = { Icon(tab.icon, contentDescription = tab.label) },
-                            label = { Text(tab.label) },
+                            label = { Text(tab.label, maxLines = 1, softWrap = false, style = androidx.compose.material3.MaterialTheme.typography.labelSmall) },
                         )
                     }
                 }

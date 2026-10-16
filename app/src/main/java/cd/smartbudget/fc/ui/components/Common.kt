@@ -4,6 +4,8 @@ package cd.smartbudget.fc.ui.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -234,7 +236,7 @@ fun PeriodSelector(
     modifier: Modifier = Modifier,
 ) {
     var askCustom by remember { mutableStateOf(false) }
-    FlowRow(modifier = modifier, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+    Row(modifier = modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         PeriodFilter.entries.forEach { p ->
             FilterChip(
                 selected = p == selected,
