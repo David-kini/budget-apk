@@ -102,7 +102,13 @@ jobs:
           sudo udevadm trigger --name-match=kvm
 
       - name: Compiler l'APK et l'APK de test
-        run: ./gradlew --no-daemon assembleDebug assembleDebugAndroidTest
+        run: |
+          set -o pipefail
+          ./gradlew --no-daemon assembleDebug assembleDebugAndroidTest 2>&1 | tee apk.log
+
+      - name: Erreurs de compilation (test)
+        if: failure()
+        run: python3 .github/scripts/report_errors.py
 
       - name: Test de bout en bout sur émulateur
         id: smoke
