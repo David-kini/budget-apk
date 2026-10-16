@@ -54,25 +54,25 @@ class SmokeTest {
         shot("01_tableau_de_bord_vide")
 
         // Nouvelle entrée de 100 000 FC
-        rule.onNodeWithText("Entrée", useUnmergedNode = true).performClick()
+        rule.onNodeWithText("Entrée", useUnmergedTree = true).performClick()
         waitForText("Montant reçu")
         rule.onNodeWithText("Montant reçu").performTextInput("100000")
         waitForText("Répartition automatique")
         shot("02_nouvelle_entree")
-        rule.onNodeWithText("Enregistrer et répartir", useUnmergedNode = true).performScrollTo().performClick()
+        rule.onNodeWithText("Enregistrer et répartir", useUnmergedTree = true).performScrollTo().performClick()
 
         waitForText("Solde disponible total")
         waitForText(Money.format(Money.fromFc(30_000))) // Épargne : 30 %
         shot("03_tableau_de_bord_apres_entree")
 
         // Dépense de 5 000 FC dans « Petites dépenses »
-        rule.onNodeWithText("Dépense", useUnmergedNode = true).performClick()
+        rule.onNodeWithText("Dépense", useUnmergedTree = true).performClick()
         waitForText("Nouvelle dépense")
         rule.onNodeWithText("Montant").performTextInput("5000")
-        rule.onNodeWithText("Petites dépenses", useUnmergedNode = true).performScrollTo().performClick()
+        rule.onNodeWithText("Petites dépenses", useUnmergedTree = true).performScrollTo().performClick()
         rule.onNodeWithText("Motif").performScrollTo().performTextInput("Pain et sucre")
         shot("04_nouvelle_depense")
-        rule.onNodeWithText("Enregistrer la dépense", useUnmergedNode = true).performScrollTo().performClick()
+        rule.onNodeWithText("Enregistrer la dépense", useUnmergedTree = true).performScrollTo().performClick()
 
         waitForText("Solde disponible total")
         waitForText(Money.format(Money.fromFc(95_000)))
@@ -80,16 +80,16 @@ class SmokeTest {
         shot("05_tableau_de_bord_apres_depense")
 
         // Historique
-        rule.onNodeWithText("Historique", useUnmergedNode = true).performClick()
+        rule.onNodeWithText("Historique", useUnmergedTree = true).performClick()
         waitForText("Historique des opérations")
         waitForText("Pain et sucre")
         shot("06_historique")
 
         // Catégories
-        rule.onNodeWithText("Catégories", useUnmergedNode = true).performClick()
+        rule.onNodeWithText("Catégories", useUnmergedTree = true).performClick()
         waitForText("Répartition active : 100 %")
         shot("07_categories")
-        rule.onNodeWithText("Pourcentages", useUnmergedNode = true).performClick()
+        rule.onNodeWithText("Pourcentages", useUnmergedTree = true).performClick()
         waitForText("Répartition des entrées")
         shot("08_pourcentages")
 
