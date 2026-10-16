@@ -76,7 +76,6 @@ class SmokeTest {
 
         waitForText("Solde disponible total")
         waitForText(Money.format(Money.fromFc(95_000)))
-        waitForText(Money.format(Money.fromFc(15_000)))
         shot("05_tableau_de_bord_apres_depense")
 
         // Historique
@@ -97,6 +96,10 @@ class SmokeTest {
         val db = (rule.activity.application as SmartBudgetApp).container.database
         val total = kotlinx.coroutines.runBlocking { db.balanceDao().getBalances().sumOf { it.balance() } }
         assertEquals(Money.fromFc(95_000), total)
+        val petites = kotlinx.coroutines.runBlocking {
+            db.balanceDao().getBalances().single { it.name == "Petites dépenses" }.balance()
+        }
+        assertEquals(Money.fromFc(15_000), petites)
         assertEquals(1, rule.onAllNodesWithText("Total : 100 %").fetchSemanticsNodes().size)
     }
 }
