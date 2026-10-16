@@ -12,6 +12,8 @@ Si tous les tests réussissent, l'APK est publié ici :
 
 **Releases → `dev-latest` → `SmartBudgetFC.apk`**
 
+La même page contient les captures d'écran prises automatiquement sur l'émulateur Android.
+
 Sur le téléphone, autorisez l'installation depuis votre navigateur ou votre gestionnaire de fichiers, puis ouvrez l'APK.
 
 ## Compiler soi-même
@@ -28,9 +30,9 @@ Prérequis : Android Studio (Ladybug ou plus récent), JDK 17.
 | Étape | Contenu | État |
 |---|---|---|
 | 1 | Analyse et architecture | ✅ voir `docs/ARCHITECTURE.md` |
-| 2 | Base de données Room (schéma, triggers, chiffrement) | ✅ code écrit, validé par la CI |
-| 3 | Logique financière | à faire |
-| 4 | Écrans Compose | à faire |
+| 2 | Base de données Room (schéma, triggers, chiffrement) | ✅ validé par la CI |
+| 3 | Logique financière (répartition, dépenses, transferts, corrections) | ✅ 52 tests |
+| 4 | Écrans Compose | ✅ test de bout en bout sur émulateur |
 | 5 | Sécurité PIN | à faire |
 | 6 | Blacklist | à faire |
 | 7 | Exports XLSX / PDF / DOCX | à faire |

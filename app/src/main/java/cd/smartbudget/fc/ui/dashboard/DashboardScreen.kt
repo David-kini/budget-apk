@@ -20,6 +20,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -98,22 +100,6 @@ fun DashboardScreen(
     Scaffold(
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         topBar = { TopAppBar(title = { Text("SmartBudget FC") }) },
-        floatingActionButton = {
-            Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                ExtendedFloatingActionButton(
-                    onClick = onNewExpense,
-                    icon = { Icon(Icons.Filled.ShoppingCart, contentDescription = null) },
-                    text = { Text("Dépense") },
-                    containerColor = MaterialTheme.colorScheme.errorContainer,
-                    contentColor = MaterialTheme.colorScheme.onErrorContainer,
-                )
-                ExtendedFloatingActionButton(
-                    onClick = onNewIncome,
-                    icon = { Icon(Icons.Filled.Add, contentDescription = null) },
-                    text = { Text("Entrée") },
-                )
-            }
-        },
     ) { padding ->
         val s = summary
         if (s == null) {
@@ -123,12 +109,32 @@ fun DashboardScreen(
         }
         LazyColumn(
             modifier = Modifier.fillMaxSize().padding(padding),
-            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 160.dp),
+            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 24.dp),
         ) {
             item {
                 PeriodSelector(period.filter, period.custom, vm.today, onSelect = vm::select)
                 Spacer(Modifier.height(8.dp))
                 TotalsCard(s)
+                Spacer(Modifier.height(12.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Button(onClick = onNewIncome, modifier = Modifier.weight(1f).height(48.dp)) {
+                        Icon(Icons.Filled.Add, contentDescription = null)
+                        Spacer(Modifier.width(6.dp))
+                        Text("Entrée")
+                    }
+                    Button(
+                        onClick = onNewExpense,
+                        modifier = Modifier.weight(1f).height(48.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.errorContainer,
+                            contentColor = MaterialTheme.colorScheme.onErrorContainer,
+                        ),
+                    ) {
+                        Icon(Icons.Filled.ShoppingCart, contentDescription = null)
+                        Spacer(Modifier.width(6.dp))
+                        Text("Dépense")
+                    }
+                }
             }
             if (s.alerts.isNotEmpty()) {
                 item { AlertsCard(s.alerts) }
