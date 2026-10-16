@@ -89,7 +89,7 @@ fun OperationListItem(row: OperationRow, onClick: (() -> Unit)? = null) {
     )
 }
 
-private enum class Dialog { DETAILS, CANCEL, CORRECT }
+private enum class Dialog { DETAILS, CANCEL, CORRECT, DELETE }
 
 /**
  * Enveloppe une ligne d'historique : un appui ouvre le détail, avec annulation et correction tracées.
@@ -152,6 +152,9 @@ fun OperationActions(row: OperationRow, content: @Composable (onClick: () -> Uni
                     if (row.status == OperationStatus.ACTIVE && row.type != "TRANSFER") {
                         TextButton(onClick = { dialog = Dialog.CORRECT }) { Text("Corriger le montant") }
                     }
+                    TextButton(onClick = { dialog = Dialog.DELETE }) {
+                        Text("Supprimer (erreur de saisie)", color = MaterialTheme.colorScheme.error)
+                    }
                     TextButton(onClick = { dialog = null }) { Text("Fermer") }
                 }
             },
@@ -176,6 +179,25 @@ fun OperationActions(row: OperationRow, content: @Composable (onClick: () -> Uni
                 handle(r) { correct(container, row, newAmount, reason, force = true) }
             }
         }
+        Dialog.DELETE -> ConfirmDialog(
+            title = "Supprimer définitivement ?",
+            text = "« ${row.label} » (${Money.format(row.amount)}) sera effacée de l'historique et des soldes" +
+                when (row.type) {
+                    "INCOME" -> ", avec sa répartition."
+                    "EXPENSE" -> ", avec son éventuel transfert de couverture et sa pièce jointe."
+                    else -> "."
+                } +
+                " Cette action est irréversible. Une trace (date, montant, libellé) reste dans le journal d'audit.",
+            confirmLabel = "Supprimer",
+            onConfirm = {
+                dialog = null
+                scope.launch {
+                    val r = delete(container, row, force = false)
+                    handle(r) { delete(container, row, force = true) }
+                }
+            },
+            onDismiss = { dialog = null },
+        )
         null -> Unit
     }
 
@@ -227,6 +249,12 @@ private suspend fun cancel(c: AppContainer, row: OperationRow, reason: String, f
     "INCOME" -> c.incomeRepository.cancelIncome(row.id, reason, force)
     "EXPENSE" -> c.expenseRepository.cancelExpense(row.id, reason)
     else -> c.transferRepository.cancelTransfer(row.id, reason, force)
+}
+
+private suspend fun delete(c: AppContainer, row: OperationRow, force: Boolean): OperationResult = when (row.type) {
+    "INCOME" -> c.deletionRepository.deleteIncome(row.id, force)
+    "EXPENSE" -> c.deletionRepository.deleteExpense(row.id)
+    else -> c.deletionRepository.deleteTransfer(row.id, force)
 }
 
 private suspend fun correct(c: AppContainer, row: OperationRow, newAmount: Long, reason: String, force: Boolean): OperationResult {

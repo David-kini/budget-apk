@@ -4,6 +4,7 @@ import android.content.Context
 import cd.smartbudget.fc.data.db.AppDatabase
 import cd.smartbudget.fc.data.repo.CategoryRepository
 import cd.smartbudget.fc.data.repo.DashboardRepository
+import cd.smartbudget.fc.data.repo.DeletionRepository
 import cd.smartbudget.fc.data.repo.ExpenseRepository
 import cd.smartbudget.fc.data.repo.HistoryRepository
 import cd.smartbudget.fc.data.repo.IncomeRepository
@@ -30,4 +31,5 @@ class AppContainer(context: Context) {
     val historyRepository by lazy { HistoryRepository(database) }
     val consistencyChecker by lazy { ConsistencyChecker(database) }
     val dashboardRepository by lazy { DashboardRepository(database) }
+    val deletionRepository by lazy { DeletionRepository(database, appContext.filesDir) }
 }

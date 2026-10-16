@@ -9,6 +9,7 @@ import cd.smartbudget.fc.core.OverdraftMode
 import cd.smartbudget.fc.data.db.AppDatabase
 import cd.smartbudget.fc.data.db.DatabaseSeeder
 import cd.smartbudget.fc.data.repo.CategoryRepository
+import cd.smartbudget.fc.data.repo.DeletionRepository
 import cd.smartbudget.fc.data.repo.ExpenseRepository
 import cd.smartbudget.fc.data.repo.ExpenseRequest
 import cd.smartbudget.fc.data.repo.HistoryRepository
@@ -53,6 +54,7 @@ class FinanceRepositoryTest {
     private lateinit var transfers: TransferRepository
     private lateinit var history: HistoryRepository
     private lateinit var checker: ConsistencyChecker
+    private lateinit var deletion: DeletionRepository
     private lateinit var id: Map<String, Long>
 
     @Before
@@ -66,6 +68,7 @@ class FinanceRepositoryTest {
         transfers = TransferRepository(db, clock)
         history = HistoryRepository(db)
         checker = ConsistencyChecker(db)
+        deletion = DeletionRepository(db, null, clock)
         id = db.categoryDao().getAll().associate { it.name to it.id }
     }
 
@@ -350,6 +353,95 @@ class FinanceRepositoryTest {
         val rows = history.get()
         assertEquals(listOf("TRANSFER", "EXPENSE", "INCOME"), rows.map { it.type })
         assertEquals("Dîme", rows.first().targetCategoryName)
+    }
+
+    // ---------------- Suppression d'une opération saisie par erreur ----------------
+
+    @Test
+    fun mistaken_expense_can_be_deleted_and_balance_is_restored() = runBlocking {
+        income(100_000).recordedId()
+        val expenseId = expense(5_000, "Petites dépenses").recordedId()
+        assertEquals(15_000L, balanceFc("Petites dépenses"))
+
+        deletion.deleteExpense(expenseId).recordedId()
+        assertEquals(20_000L, balanceFc("Petites dépenses"))
+        assertEquals(null, db.expenseDao().getById(expenseId))
+        assertTrue(history.get().none { it.type == "EXPENSE" })
+        // Jamais silencieux : la suppression est tracée dans le journal d'audit.
+        assertTrue(db.auditDao().getAll().any { it.entityType == "expense" && it.entityId == expenseId && it.action == "delete" })
+        // Les garde-fous sont rétablis après la suppression.
+        val other = expense(1_000, "Maison").recordedId()
+        try {
+            db.openHelper.writableDatabase.execSQL("DELETE FROM expenses WHERE id = $other")
+            org.junit.Assert.fail("La suppression directe en SQL doit rester interdite")
+        } catch (e: android.database.sqlite.SQLiteException) {
+            // attendu
+        }
+        assertConsistent()
+    }
+
+    @Test
+    fun mistaken_income_is_deleted_with_its_allocations() = runBlocking {
+        income(100_000).recordedId()
+        val wrong = income(250_000).recordedId()
+        deletion.deleteIncome(wrong).recordedId()
+        assertEquals(null, db.incomeDao().getById(wrong))
+        assertEquals(0, db.allocationDao().getForIncome(wrong).size)
+        assertEquals(30_000L, balanceFc("Épargne"))
+        assertEquals(fc(100_000), db.incomeDao().sumActive())
+        assertConsistent()
+    }
+
+    @Test
+    fun deleting_a_spent_income_requires_confirmation() = runBlocking {
+        val incomeId = income(100_000).recordedId()
+        expense(20_000, "Petites dépenses").recordedId()
+        val ask = deletion.deleteIncome(incomeId)
+        assertTrue(ask is OperationResult.NeedsConfirmation)
+        assertTrue(db.incomeDao().getById(incomeId) != null)
+        deletion.deleteIncome(incomeId, force = true).recordedId()
+        assertEquals(-20_000L, balanceFc("Petites dépenses"))
+        assertConsistent()
+    }
+
+    @Test
+    fun deleting_an_expense_also_deletes_its_cover_transfer() = runBlocking {
+        settings.setOverdraftMode(OverdraftMode.TRANSFER)
+        income(100_000).recordedId()
+        val expenseId = expense(25_000, "Petites dépenses", coverFrom = "Épargne").recordedId()
+        assertEquals(1, db.transferDao().getAll().size)
+        deletion.deleteExpense(expenseId).recordedId()
+        assertEquals(0, db.transferDao().getAll().size)
+        assertEquals(30_000L, balanceFc("Épargne"))
+        assertEquals(20_000L, balanceFc("Petites dépenses"))
+        assertConsistent()
+    }
+
+    @Test
+    fun corrected_original_cannot_be_deleted_before_its_correction() = runBlocking {
+        income(100_000).recordedId()
+        val original = expense(5_000, "Petites dépenses").recordedId()
+        val corrected = expenses.correctExpense(
+            original, ExpenseRequest(req(), fc(3_000), id.getValue("Petites dépenses"), "Achat", TODAY), "Erreur",
+        ).recordedId()
+        val refused = deletion.deleteExpense(original)
+        assertTrue(refused is OperationResult.Rejected && refused.reason == RejectReason.HAS_HISTORY)
+        deletion.deleteExpense(corrected).recordedId()
+        deletion.deleteExpense(original).recordedId()
+        assertEquals(20_000L, balanceFc("Petites dépenses"))
+        val again = deletion.deleteExpense(original)
+        assertTrue(again is OperationResult.Rejected && again.reason == RejectReason.NOT_FOUND)
+        assertConsistent()
+    }
+
+    @Test
+    fun mistaken_transfer_can_be_deleted() = runBlocking {
+        income(100_000).recordedId()
+        val t = transfers.transfer(TransferRequest(req(), id.getValue("Épargne"), id.getValue("Maison"), fc(10_000), TODAY, "Erreur")).recordedId()
+        deletion.deleteTransfer(t).recordedId()
+        assertEquals(30_000L, balanceFc("Épargne"))
+        assertEquals(20_000L, balanceFc("Maison"))
+        assertConsistent()
     }
 
     // ---------------- Cohérence ----------------

@@ -158,6 +158,12 @@ interface IncomeDao {
     @Query("SELECT COALESCE(SUM(amount), 0) FROM incomes WHERE status = 'ACTIVE'")
     suspend fun sumActive(): Long
 
+    @Query("DELETE FROM incomes WHERE id = :id")
+    suspend fun deleteById(id: Long): Int
+
+    @Query("SELECT COUNT(*) FROM incomes WHERE correctsIncomeId = :id")
+    suspend fun countCorrections(id: Long): Int
+
     /** Annule une entrée active. Retourne 1 si l'annulation a eu lieu, 0 sinon. */
     @Query(
         """
@@ -172,6 +178,9 @@ interface IncomeDao {
 interface AllocationDao {
     @Insert(onConflict = OnConflictStrategy.ABORT)
     suspend fun insertAll(allocations: List<AllocationEntity>)
+
+    @Query("DELETE FROM allocations WHERE incomeId = :incomeId")
+    suspend fun deleteForIncome(incomeId: Long): Int
 
     @Query("SELECT * FROM allocations WHERE incomeId = :incomeId ORDER BY id")
     suspend fun getForIncome(incomeId: Long): List<AllocationEntity>
@@ -234,6 +243,12 @@ interface ExpenseDao {
     )
     suspend fun sumByCategoryBetween(fromDay: Long, toDay: Long): List<CategoryTotalRow>
 
+    @Query("DELETE FROM expenses WHERE id = :id")
+    suspend fun deleteById(id: Long): Int
+
+    @Query("SELECT COUNT(*) FROM expenses WHERE correctsExpenseId = :id")
+    suspend fun countCorrections(id: Long): Int
+
     @Query(
         """
         UPDATE expenses SET status = 'CANCELLED', cancelledAt = :at, cancelReason = :reason
@@ -259,6 +274,12 @@ interface TransferDao {
 
     @Query("SELECT * FROM transfers ORDER BY id")
     suspend fun getAll(): List<TransferEntity>
+
+    @Query("DELETE FROM transfers WHERE id = :id")
+    suspend fun deleteById(id: Long): Int
+
+    @Query("SELECT * FROM transfers WHERE linkedExpenseId = :expenseId")
+    suspend fun getAllLinkedToExpense(expenseId: Long): List<TransferEntity>
 
     @Query("SELECT * FROM transfers WHERE linkedExpenseId = :expenseId AND status = 'ACTIVE'")
     suspend fun getActiveLinkedToExpense(expenseId: Long): List<TransferEntity>
